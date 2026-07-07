@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.nara.nara_be.dao.BidFavoriteDao">
+
+    <resultMap id="bidFavoriteResultMap" type="BidFavorite">
+        <id property="favoriteSeq" column="favorite_seq"/>
+        <result property="userSeq" column="user_seq"/>
+        <result property="bidNo" column="bid_no"/>
+        <result property="bidOrd" column="bid_ord"/>
+        <result property="announceDate" column="announce_date"/>
+        <result property="bidName" column="bid_name"/>
+        <result property="industry" column="industry"/>
+        <result property="contractMethod" column="contract_method"/>
+        <result property="openingDate" column="opening_date"/>
+        <result property="estimatedPrice" column="estimated_price"/>
+        <result property="agency" column="agency"/>
+        <result property="detailUrl" column="detail_url"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="bidFavoriteColumns">
+        favorite_seq,
+        user_seq,
+        bid_no,
+        bid_ord,
+        announce_date,
+        bid_name,
+        industry,
+        contract_method,
+        opening_date,
+        estimated_price,
+        agency,
+        detail_url,
+        created_at
+    </sql>
+
+    <select id="findByUserSeq" resultMap="bidFavoriteResultMap">
+        SELECT
+        <include refid="bidFavoriteColumns"/>
+        FROM progist.bid_favorites
+        WHERE user_seq = #{userSeq}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="existsByUserAndBid" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM progist.bid_favorites
+        WHERE user_seq = #{userSeq}
+          AND bid_no = #{bidNo}
+          AND bid_ord = #{bidOrd}
+          AND announce_date = #{announceDate}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="favoriteSeq">
+        INSERT INTO progist.bid_favorites (
+            user_seq,
+            bid_no,
+            bid_ord,
+            announce_date,
+            bid_name,
+            industry,
+            contract_method,
+            opening_date,
+            estimated_price,
+            agency,
+            detail_url
+        ) VALUES (
+            #{userSeq},
+            #{bidNo},
+            #{bidOrd},
+            #{announceDate},
+            #{bidName},
+            #{industry},
+            #{contractMethod},
+            #{openingDate},
+            #{estimatedPrice},
+            #{agency},
+            #{detailUrl}
+        )
+    </insert>
+
+    <delete id="deleteByUserAndBid">
+        DELETE FROM progist.bid_favorites
+        WHERE user_seq = #{userSeq}
+          AND bid_no = #{bidNo}
+          AND bid_ord = #{bidOrd}
+          AND announce_date = #{announceDate}
+    </delete>
+
+</mapper>
