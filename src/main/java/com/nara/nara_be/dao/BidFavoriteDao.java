@@ -27,4 +27,28 @@ public interface BidFavoriteDao {
             @Param("bidOrd") String bidOrd,
             @Param("announceDate") LocalDate announceDate
     );
+
+    Long findFavoriteSeqByUserAndBid(
+            @Param("userSeq") Long userSeq,
+            @Param("bidNo") String bidNo,
+            @Param("bidOrd") String bidOrd,
+            @Param("announceDate") LocalDate announceDate
+    );
+
+    BidFavorite findOwnedByFavoriteSeq(
+            @Param("favoriteSeq") Long favoriteSeq,
+            @Param("userSeq") Long userSeq
+    );
+
+    BidFavorite findOwnedByUserAndBid(
+            @Param("userSeq") Long userSeq,
+            @Param("bidNo") String bidNo,
+            @Param("bidOrd") String bidOrd,
+            @Param("announceDate") LocalDate announceDate
+    );
+
+    void updateGoogleDriveFolderId(
+            @Param("favoriteSeq") Long favoriteSeq,
+            @Param("googleDriveFolderId") String googleDriveFolderId
+    );
 }

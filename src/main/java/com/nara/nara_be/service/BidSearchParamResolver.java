@@ -51,6 +51,12 @@ public class BidSearchParamResolver {
             throw new BusinessException("startBizYmd는 endBizYmd보다 이후일 수 없습니다.", HttpStatus.BAD_REQUEST);
         }
 
+        Long minPrice = resolveMinPrice(param);
+        Long maxPrice = resolveMaxPrice(param);
+        if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+            throw new BusinessException("추정가격 최소값은 최대값보다 클 수 없습니다.", HttpStatus.BAD_REQUEST);
+        }
+
         return ResolvedBidSearch.builder()
                 .bidName(trimToNull(param.getBizNm()))
                 .bidNo(trimToNull(param.getBizNo()))
@@ -64,12 +70,38 @@ public class BidSearchParamResolver {
                 .startDate(startDate)
                 .endDate(endDate)
                 .dateQueryType(dateQueryType)
-                .minPrice(null)
-                .maxPrice(null)
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
                 .pageNo(param.getCurrentPage() != null && param.getCurrentPage() > 0 ? param.getCurrentPage() : 1)
                 .pageSize(parsePageSize(param.getRecordCountPerPage()))
                 .excludeClosedBids(resolveExcludeClosedBids(param.getSlpRDdlnExclYn()))
                 .build();
+    }
+
+    private Long resolveMinPrice(DlSrchParamM param) {
+        if (param instanceof BidSearchRequest request && request.getMinPrice() != null) {
+            return request.getMinPrice();
+        }
+        return parsePriceField(param.getStartPbancSrchItm02());
+    }
+
+    private Long resolveMaxPrice(DlSrchParamM param) {
+        if (param instanceof BidSearchRequest request && request.getMaxPrice() != null) {
+            return request.getMaxPrice();
+        }
+        return parsePriceField(param.getEndPbancSrchItm02());
+    }
+
+    private Long parsePriceField(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        try {
+            long price = Long.parseLong(value.trim());
+            return price >= 0 ? price : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     /** 나라장터 UI 기본값: 입찰마감제외 체크(slpRDdlnExclYn 미전송 시 Y) */

@@ -48,7 +48,9 @@ public class G2bApiClient {
     private static final List<String> PRTCPT_PSBL_RGN_OPERATIONS = List.of(
             "getBidPblancListInfoPrtcptPsblRgn"
     );
+    private static final String SERVC_DETAIL_OPERATION = "getBidPblancListInfoServc";
     private static final List<String> BID_PRC_PSBL_INDSTRYTY_OPERATIONS = List.of(
+            "getBidPblancListInfoLicnsLmt",
             "getBidPblancListInfoBidPrcPsblIndstrytyServc",
             "getBidPblancListInfoBidPrcPsblIndstryty"
     );
@@ -617,14 +619,14 @@ public class G2bApiClient {
             String industryName
     ) {
         JsonNode rawItem = findBidItemNode(bidNtceNo, bidNtceOrd, announceDate, industryCode);
+        JsonNode servcItem = fetchServcBidItemNode(bidNtceNo.trim(), bidNtceOrd);
+        JsonNode industrySource = selectIndustryRestrictionSource(servcItem, rawItem);
         G2bBidItem item = jsonMapper.treeToValue(rawItem, G2bBidItem.class);
         String regionRestriction = resolveRegionRestriction(rawItem, bidNtceNo.trim(), bidNtceOrd);
         String industryRestriction = resolveIndustryRestriction(
-                rawItem,
+                industrySource,
                 bidNtceNo.trim(),
-                bidNtceOrd,
-                industryCode,
-                industryName
+                bidNtceOrd
         );
         item.setBidNtceDtlCntnts(resolveDetailContent(item, rawItem, regionRestriction, industryRestriction));
 
@@ -827,12 +829,93 @@ public class G2bApiClient {
         return "ㆍ" + trimmed;
     }
 
+    private JsonNode selectIndustryRestrictionSource(JsonNode servcItem, JsonNode rawItem) {
+        if (servcItem != null && hasIndustryRestrictionFields(servcItem)) {
+            return servcItem;
+        }
+        return rawItem;
+    }
+
+    private boolean hasIndustryRestrictionFields(JsonNode item) {
+        if (item == null) {
+            return false;
+        }
+
+        if (StringUtils.hasText(firstNonBlank(
+                readText(item, "indstrytyLmtCntnts"),
+                readText(item, "bidprcPsblIndstrytyNm")
+        ))) {
+            return true;
+        }
+
+        for (int index = 1; index <= 10; index++) {
+            if (StringUtils.hasText(firstNonBlank(
+                    readText(item, "indstrytyNm" + index),
+                    readText(item, "bidprcPsblIndstrytyNm" + index),
+                    readText(item, "lcnsLmtNm" + index),
+                    readText(item, "indstrytyLmtNm" + index)
+            ))) {
+                return true;
+            }
+        }
+
+        return StringUtils.hasText(firstNonBlank(
+                readText(item, "indstrytyNm"),
+                readText(item, "lcnsLmtNm"),
+                readText(item, "indstrytyLmtNm")
+        ));
+    }
+
+    private JsonNode fetchServcBidItemNode(String bidNtceNo, String bidNtceOrd) {
+        try {
+            JsonNode body = executeRequest(buildServcBidLookupUri(bidNtceNo, bidNtceOrd));
+            JsonNode itemsNode = body.path("items");
+            if (isEmptyItems(itemsNode)) {
+                return null;
+            }
+
+            String targetOrd = normalizeBidOrd(bidNtceOrd);
+            for (JsonNode item : toItemNodes(itemsNode)) {
+                if (bidNtceNo.equals(readText(item, "bidNtceNo"))
+                        && targetOrd.equals(normalizeBidOrd(readText(item, "bidNtceOrd")))) {
+                    return item;
+                }
+            }
+            return toItemNodes(itemsNode).get(0);
+        } catch (BusinessException e) {
+            log.debug("{} 조회 실패 bidNtceNo={}: {}", SERVC_DETAIL_OPERATION, bidNtceNo, e.getMessage());
+            return null;
+        }
+    }
+
+    private URI buildServcBidLookupUri(String bidNtceNo, String bidNtceOrd) {
+        String baseUrl = properties.getBaseUrl();
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+
+        StringBuilder url = new StringBuilder(baseUrl)
+                .append("/")
+                .append(SERVC_DETAIL_OPERATION)
+                .append("?serviceKey=")
+                .append(encodeQueryValue(properties.getServiceKey()))
+                .append("&pageNo=1")
+                .append("&numOfRows=10")
+                .append("&inqryDiv=3")
+                .append("&bidNtceNo=").append(encodeQueryValue(bidNtceNo))
+                .append("&type=json");
+
+        if (StringUtils.hasText(bidNtceOrd)) {
+            url.append("&bidNtceOrd=").append(encodeQueryValue(normalizeBidOrd(bidNtceOrd)));
+        }
+
+        return URI.create(url.toString());
+    }
+
     private String resolveIndustryRestriction(
             JsonNode rawItem,
             String bidNtceNo,
-            String bidNtceOrd,
-            String industryCode,
-            String industryName
+            String bidNtceOrd
     ) {
         String fromApi = fetchIndustryRestrictionDescriptions(bidNtceNo, bidNtceOrd);
         if (StringUtils.hasText(fromApi)) {
@@ -845,18 +928,7 @@ public class G2bApiClient {
         }
 
         if (isYes(readText(rawItem, "indstrytyLmtYn"))) {
-            String formatted = formatIndustryRestrictionFromNode(rawItem);
-            if (StringUtils.hasText(formatted)) {
-                return formatted;
-            }
-
-            formatted = formatIndustryRestrictionEntry(
-                    StringUtils.hasText(industryName) ? industryName.trim() : null,
-                    StringUtils.hasText(industryCode) ? industryCode.trim() : null
-            );
-            if (StringUtils.hasText(formatted)) {
-                return formatted;
-            }
+            return "업종 제한 있음";
         }
 
         return "제한없음";
@@ -874,39 +946,79 @@ public class G2bApiClient {
                 continue;
             }
 
-            LinkedHashSet<String> descriptions = new LinkedHashSet<>();
-            for (JsonNode item : toItemNodes(itemsNode)) {
-                String formatted = formatIndustryRestrictionFromNode(item);
-                if (StringUtils.hasText(formatted)) {
-                    descriptions.add(formatted);
-                }
+            String preformatted = extractPreformattedIndustryRestriction(itemsNode);
+            if (StringUtils.hasText(preformatted)) {
+                return preformatted;
             }
-            if (!descriptions.isEmpty()) {
-                return String.join("\n", descriptions);
+
+            LinkedHashSet<String> labels = new LinkedHashSet<>();
+            for (JsonNode item : toItemNodes(itemsNode)) {
+                collectIndustryLabels(item, labels);
+            }
+
+            String combined = formatCombinedIndustryRestriction(labels);
+            if (StringUtils.hasText(combined)) {
+                return combined;
             }
         }
         return null;
     }
 
-    private String formatIndustryRestrictionFromNode(JsonNode item) {
-        String preformatted = firstNonBlank(
-                readText(item, "indstrytyLmtCntnts"),
-                readText(item, "bidprcPsblIndstrytyNm")
-        );
-        if (StringUtils.hasText(preformatted) && preformatted.contains("업종을 등록한 업체")) {
-            return preformatted.trim();
+    private String extractPreformattedIndustryRestriction(JsonNode itemsNode) {
+        for (JsonNode item : toItemNodes(itemsNode)) {
+            String preformatted = firstNonBlank(
+                    readText(item, "indstrytyLmtCntnts"),
+                    readText(item, "bidprcPsblIndstrytyNm")
+            );
+            if (StringUtils.hasText(preformatted) && preformatted.contains("업종을 등록한 업체")) {
+                return preformatted.trim();
+            }
         }
-
-        String name = firstNonBlank(
-                readText(item, "indstrytyNm"),
-                readText(item, "bidprcPsblIndstrytyNm"),
-                preformatted
-        );
-        String code = readText(item, "indstrytyCd");
-        return formatIndustryRestrictionEntry(name, code);
+        return null;
     }
 
-    private String formatIndustryRestrictionEntry(String name, String code) {
+    private void collectIndustryLabels(JsonNode item, LinkedHashSet<String> labels) {
+        addIndustryLabel(labels,
+                firstNonBlank(
+                        readText(item, "indstrytyNm"),
+                        readText(item, "lcnsLmtNm"),
+                        readText(item, "indstrytyLmtNm"),
+                        readText(item, "bidprcPsblIndstrytyNm")
+                ),
+                firstNonBlank(
+                        readText(item, "indstrytyCd"),
+                        readText(item, "lcnsLmtCd"),
+                        readText(item, "indstrytyLmtCd"),
+                        readText(item, "bidprcPsblIndstrytyCd")
+                )
+        );
+
+        for (int index = 1; index <= 10; index++) {
+            addIndustryLabel(labels,
+                    firstNonBlank(
+                            readText(item, "indstrytyNm" + index),
+                            readText(item, "bidprcPsblIndstrytyNm" + index),
+                            readText(item, "lcnsLmtNm" + index),
+                            readText(item, "indstrytyLmtNm" + index)
+                    ),
+                    firstNonBlank(
+                            readText(item, "indstrytyCd" + index),
+                            readText(item, "bidprcPsblIndstrytyCd" + index),
+                            readText(item, "lcnsLmtCd" + index),
+                            readText(item, "indstrytyLmtCd" + index)
+                    )
+            );
+        }
+    }
+
+    private void addIndustryLabel(LinkedHashSet<String> labels, String name, String code) {
+        String label = formatIndustryLabel(name, code);
+        if (StringUtils.hasText(label)) {
+            labels.add(label);
+        }
+    }
+
+    private String formatIndustryLabel(String name, String code) {
         if (!StringUtils.hasText(name) && !StringUtils.hasText(code)) {
             return null;
         }
@@ -918,33 +1030,31 @@ public class G2bApiClient {
         if (StringUtils.hasText(code)) {
             label.append("(").append(code.trim()).append(")");
         }
-        return "[ " + label + " ] 업종을 등록한 업체";
+        return label.toString();
+    }
+
+    private String formatCombinedIndustryRestriction(LinkedHashSet<String> labels) {
+        if (labels.isEmpty()) {
+            return null;
+        }
+        if (labels.size() == 1) {
+            return "[ " + labels.iterator().next() + " ] 업종을 등록한 업체";
+        }
+        return "[ " + String.join("과 ", labels) + " ] 업종을 등록한 업체";
     }
 
     private String buildIndustryRestrictionFromRaw(JsonNode rawItem) {
-        LinkedHashSet<String> descriptions = new LinkedHashSet<>();
-
-        String single = formatIndustryRestrictionFromNode(rawItem);
-        if (StringUtils.hasText(single)) {
-            descriptions.add(single);
+        String preformatted = firstNonBlank(
+                readText(rawItem, "indstrytyLmtCntnts"),
+                readText(rawItem, "bidprcPsblIndstrytyNm")
+        );
+        if (StringUtils.hasText(preformatted) && preformatted.contains("업종을 등록한 업체")) {
+            return preformatted.trim();
         }
 
-        for (int index = 1; index <= 10; index++) {
-            String name = firstNonBlank(
-                    readText(rawItem, "indstrytyNm" + index),
-                    readText(rawItem, "bidprcPsblIndstrytyNm" + index)
-            );
-            String code = readText(rawItem, "indstrytyCd" + index);
-            String formatted = formatIndustryRestrictionEntry(name, code);
-            if (StringUtils.hasText(formatted)) {
-                descriptions.add(formatted);
-            }
-        }
-
-        if (!descriptions.isEmpty()) {
-            return String.join("\n", descriptions);
-        }
-        return null;
+        LinkedHashSet<String> labels = new LinkedHashSet<>();
+        collectIndustryLabels(rawItem, labels);
+        return formatCombinedIndustryRestriction(labels);
     }
 
     private String buildRegionRestrictionFromRaw(JsonNode rawItem) {

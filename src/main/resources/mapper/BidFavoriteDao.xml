@@ -17,6 +17,11 @@
         <result property="estimatedPrice" column="estimated_price"/>
         <result property="agency" column="agency"/>
         <result property="detailUrl" column="detail_url"/>
+        <result property="detailContent" column="detail_content"/>
+        <result property="contactName" column="contact_name"/>
+        <result property="contactPhone" column="contact_phone"/>
+        <result property="contactEmail" column="contact_email"/>
+        <result property="googleDriveFolderId" column="google_drive_folder_id"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
@@ -33,6 +38,11 @@
         estimated_price,
         agency,
         detail_url,
+        detail_content,
+        contact_name,
+        contact_phone,
+        contact_email,
+        google_drive_folder_id,
         created_at
     </sql>
 
@@ -65,7 +75,11 @@
             opening_date,
             estimated_price,
             agency,
-            detail_url
+            detail_url,
+            detail_content,
+            contact_name,
+            contact_phone,
+            contact_email
         ) VALUES (
             #{userSeq},
             #{bidNo},
@@ -77,9 +91,49 @@
             #{openingDate},
             #{estimatedPrice},
             #{agency},
-            #{detailUrl}
+            #{detailUrl},
+            #{detailContent},
+            #{contactName},
+            #{contactPhone},
+            #{contactEmail}
         )
     </insert>
+
+    <select id="findFavoriteSeqByUserAndBid" resultType="long">
+        SELECT favorite_seq
+        FROM progist.bid_favorites
+        WHERE user_seq = #{userSeq}
+          AND bid_no = #{bidNo}
+          AND bid_ord = #{bidOrd}
+          AND announce_date = #{announceDate}
+        LIMIT 1
+    </select>
+
+    <select id="findOwnedByFavoriteSeq" resultMap="bidFavoriteResultMap">
+        SELECT
+        <include refid="bidFavoriteColumns"/>
+        FROM progist.bid_favorites
+        WHERE favorite_seq = #{favoriteSeq}
+          AND user_seq = #{userSeq}
+        LIMIT 1
+    </select>
+
+    <select id="findOwnedByUserAndBid" resultMap="bidFavoriteResultMap">
+        SELECT
+        <include refid="bidFavoriteColumns"/>
+        FROM progist.bid_favorites
+        WHERE user_seq = #{userSeq}
+          AND bid_no = #{bidNo}
+          AND bid_ord = #{bidOrd}
+          AND announce_date = #{announceDate}
+        LIMIT 1
+    </select>
+
+    <update id="updateGoogleDriveFolderId">
+        UPDATE progist.bid_favorites
+        SET google_drive_folder_id = #{googleDriveFolderId}
+        WHERE favorite_seq = #{favoriteSeq}
+    </update>
 
     <delete id="deleteByUserAndBid">
         DELETE FROM progist.bid_favorites

@@ -1,6 +1,7 @@
 package com.nara.nara_be.service;
 
 import com.nara.nara_be.dto.BidDateQueryType;
+import com.nara.nara_be.dto.BidSearchRequest;
 import com.nara.nara_be.dto.DlSrchParamM;
 import com.nara.nara_be.dto.ResolvedBidSearch;
 import org.junit.jupiter.api.Test;
@@ -90,6 +91,27 @@ class BidSearchParamResolverTest {
         ResolvedBidSearch resolved = resolver.resolve(param);
 
         assertThat(resolved.getDateQueryType()).isEqualTo(BidDateQueryType.OPENING);
+    }
+
+    @Test
+    void resolve_mapsEstimatedPriceRangeFromBidSearchRequest() throws Exception {
+        tools.jackson.databind.json.JsonMapper jsonMapper = tools.jackson.databind.json.JsonMapper.builder().build();
+        String json = """
+                {
+                  "startDate": "2026-06-07",
+                  "endDate": "2026-07-08",
+                  "industryCode": "1468",
+                  "dateType": "announceDate",
+                  "minPrice": 500000000,
+                  "maxPrice": 1000000000
+                }
+                """;
+
+        BidSearchRequest request = jsonMapper.readValue(json, BidSearchRequest.class);
+        ResolvedBidSearch resolved = resolver.resolve(request);
+
+        assertThat(resolved.getMinPrice()).isEqualTo(500_000_000L);
+        assertThat(resolved.getMaxPrice()).isEqualTo(1_000_000_000L);
     }
 
     @Test

@@ -26,6 +26,11 @@ public class BidFavorite {
     private Long estimatedPrice;
     private String agency;
     private String detailUrl;
+    private String detailContent;
+    private String contactName;
+    private String contactPhone;
+    private String contactEmail;
+    private String googleDriveFolderId;
     private LocalDateTime createdAt;
 
     @Builder
@@ -40,7 +45,11 @@ public class BidFavorite {
             String openingDate,
             Long estimatedPrice,
             String agency,
-            String detailUrl
+            String detailUrl,
+            String detailContent,
+            String contactName,
+            String contactPhone,
+            String contactEmail
     ) {
         this.userSeq = userSeq;
         this.bidNo = bidNo;
@@ -53,5 +62,9 @@ public class BidFavorite {
         this.estimatedPrice = estimatedPrice;
         this.agency = agency;
         this.detailUrl = detailUrl;
+        this.detailContent = detailContent;
+        this.contactName = contactName;
+        this.contactPhone = contactPhone;
+        this.contactEmail = contactEmail;
     }
 }

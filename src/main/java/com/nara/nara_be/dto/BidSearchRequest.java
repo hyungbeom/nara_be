@@ -48,6 +48,9 @@ public class BidSearchRequest extends DlSrchParamM {
     @JsonAlias({"dateType"})
     private String legacyDateType;
 
+    private Long minPrice;
+    private Long maxPrice;
+
     @JsonProperty("dlSrchParamM")
     public void setDlSrchParamM(DlSrchParamM nested) {
         if (nested != null) {

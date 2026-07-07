@@ -21,4 +21,6 @@ public class BidFavoriteRequest {
     private Long estimatedPrice;
     private String agency;
     private String detailUrl;
+    private String industryCode;
+    private String industryName;
 }

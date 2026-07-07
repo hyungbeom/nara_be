@@ -13,6 +13,7 @@ public class BidSearchResponse {
     private String industry;
     private String serviceDiv;
     private String contractMethod;
+    private String bidMethod;
     private String announceDate;
     private String openingDate;
     private Long estimatedPrice;

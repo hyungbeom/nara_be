@@ -267,8 +267,12 @@ class G2bApiClientTest {
 
         server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoServcPPSSrch")))
                 .andRespond(withSuccess(searchJson, org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoServc")))
+                .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
         server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoPrtcptPsblRgn")))
                 .andRespond(withSuccess(regionJson, org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoLicnsLmt")))
+                .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
         server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoBidPrcPsblIndstrytyServc")))
                 .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
         server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoBidPrcPsblIndstryty")))
@@ -287,5 +291,74 @@ class G2bApiClientTest {
         assertThat(detail.getRegionRestriction()).isEqualTo("""
                 [경상북도]
                 ㆍ본 공고에 단독으로 입찰 참여하는 경우, 입찰 참여자의 주된 영업소재지(법인인 경우 본사 소재지)가 참가가능지역에 있어야 합니다.""");
+    }
+
+    @Test
+    void getBidDetail_combinesMultipleIndustryRestrictionsFromServcDetail() {
+        String searchJson = """
+                {
+                  "response": {
+                    "header": { "resultCode": "00", "resultMsg": "NORMAL SERVICE." },
+                    "body": {
+                      "items": {
+                        "bidNtceNo": "R26BK01527855",
+                        "bidNtceOrd": "000",
+                        "bidNtceNm": "업종제한 테스트",
+                        "bidNtceDt": "2026-06-10 10:00:00",
+                        "indstrytyLmtYn": "Y",
+                        "srvceDivNm": "일반용역"
+                      },
+                      "numOfRows": 100,
+                      "pageNo": 1,
+                      "totalCount": 1
+                    }
+                  }
+                }
+                """;
+        String servcDetailJson = """
+                {
+                  "response": {
+                    "header": { "resultCode": "00", "resultMsg": "NORMAL SERVICE." },
+                    "body": {
+                      "items": {
+                        "bidNtceNo": "R26BK01527855",
+                        "bidNtceOrd": "000",
+                        "indstrytyLmtYn": "Y",
+                        "indstrytyNm1": "정보통신공사업",
+                        "indstrytyCd1": "0036",
+                        "indstrytyNm2": "소프트웨어사업자(컴퓨터관련서비스사업)",
+                        "indstrytyCd2": "1468"
+                      },
+                      "totalCount": 1
+                    }
+                  }
+                }
+                """;
+
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoServcPPSSrch")))
+                .andRespond(withSuccess(searchJson, org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoServc")))
+                .andRespond(withSuccess(servcDetailJson, org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoPrtcptPsblRgn")))
+                .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoLicnsLmt")))
+                .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoBidPrcPsblIndstrytyServc")))
+                .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoBidPrcPsblIndstryty")))
+                .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(requestTo(org.hamcrest.Matchers.containsString("getBidPblancListInfoEorderAtchFileInfo")))
+                .andRespond(withSuccess(emptyItemsJson(), org.springframework.http.MediaType.APPLICATION_JSON));
+
+        var detail = client.getBidDetail(
+                "R26BK01527855",
+                "000",
+                LocalDate.of(2026, 6, 10),
+                "1468",
+                "소프트웨어사업자(컴퓨터관련서비스사업)"
+        );
+
+        assertThat(detail.getIndustryRestriction())
+                .isEqualTo("[ 정보통신공사업(0036)과 소프트웨어사업자(컴퓨터관련서비스사업)(1468) ] 업종을 등록한 업체");
     }
 }

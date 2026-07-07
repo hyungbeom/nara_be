@@ -367,6 +367,7 @@ public class BidServiceImpl implements BidService {
                 .industry(buildIndustryLabel(item))
                 .serviceDiv(item.getSrvceDivNm())
                 .contractMethod(item.getCntrctCnclsMthdNm())
+                .bidMethod(item.getBidMethdNm())
                 .announceDate(formatAnnounceDate(item.getBidNtceDt()))
                 .openingDate(formatAnnounceDate(item.getOpengDt()))
                 .estimatedPrice(calculateEstimatedPrice(item))

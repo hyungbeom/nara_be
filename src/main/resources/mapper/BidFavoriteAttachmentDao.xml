@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.nara.nara_be.dao.BidFavoriteAttachmentDao">
+
+    <resultMap id="bidFavoriteAttachmentResultMap" type="BidFavoriteAttachment">
+        <id property="attachmentSeq" column="attachment_seq"/>
+        <result property="favoriteSeq" column="favorite_seq"/>
+        <result property="originalFileName" column="original_file_name"/>
+        <result property="storedFileName" column="stored_file_name"/>
+        <result property="originalUrl" column="original_url"/>
+        <result property="contentType" column="content_type"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="convertedFromHwpx" column="converted_from_hwpx"/>
+        <result property="storagePath" column="storage_path"/>
+        <result property="googleDriveFileId" column="google_drive_file_id"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="bidFavoriteAttachmentColumns">
+        attachment_seq,
+        favorite_seq,
+        original_file_name,
+        stored_file_name,
+        original_url,
+        content_type,
+        file_size,
+        converted_from_hwpx,
+        storage_path,
+        google_drive_file_id,
+        created_at
+    </sql>
+
+    <select id="findByFavoriteSeq" resultMap="bidFavoriteAttachmentResultMap">
+        SELECT
+        <include refid="bidFavoriteAttachmentColumns"/>
+        FROM progist.bid_favorite_attachments
+        WHERE favorite_seq = #{favoriteSeq}
+        ORDER BY attachment_seq
+    </select>
+
+    <select id="findByFavoriteSeqs" resultMap="bidFavoriteAttachmentResultMap">
+        SELECT
+        <include refid="bidFavoriteAttachmentColumns"/>
+        FROM progist.bid_favorite_attachments
+        WHERE favorite_seq IN
+        <foreach collection="favoriteSeqs" item="favoriteSeq" open="(" separator="," close=")">
+            #{favoriteSeq}
+        </foreach>
+        ORDER BY favorite_seq, attachment_seq
+    </select>
+
+    <select id="findByAttachmentSeq" resultMap="bidFavoriteAttachmentResultMap">
+        SELECT
+        <include refid="bidFavoriteAttachmentColumns"/>
+        FROM progist.bid_favorite_attachments
+        WHERE attachment_seq = #{attachmentSeq}
+    </select>
+
+    <select id="findOwnedAttachment" resultMap="bidFavoriteAttachmentResultMap">
+        SELECT
+            a.attachment_seq,
+            a.favorite_seq,
+            a.original_file_name,
+            a.stored_file_name,
+            a.original_url,
+            a.content_type,
+            a.file_size,
+            a.converted_from_hwpx,
+            a.storage_path,
+            a.google_drive_file_id,
+            a.created_at
+        FROM progist.bid_favorite_attachments a
+        INNER JOIN progist.bid_favorites f ON f.favorite_seq = a.favorite_seq
+        WHERE a.attachment_seq = #{attachmentSeq}
+          AND f.user_seq = #{userSeq}
+    </select>
+
+    <select id="findConvertedPdf" resultMap="bidFavoriteAttachmentResultMap">
+        SELECT
+        <include refid="bidFavoriteAttachmentColumns"/>
+        FROM progist.bid_favorite_attachments
+        WHERE favorite_seq = #{favoriteSeq}
+          AND original_file_name = #{originalFileName}
+          AND converted_from_hwpx = 1
+        ORDER BY attachment_seq DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="attachmentSeq">
+        INSERT INTO progist.bid_favorite_attachments (
+            favorite_seq,
+            original_file_name,
+            stored_file_name,
+            original_url,
+            content_type,
+            file_size,
+            converted_from_hwpx,
+            storage_path
+        ) VALUES (
+            #{favoriteSeq},
+            #{originalFileName},
+            #{storedFileName},
+            #{originalUrl},
+            #{contentType},
+            #{fileSize},
+            #{convertedFromHwpx},
+            #{storagePath}
+        )
+    </insert>
+
+    <delete id="deleteByFavoriteSeq">
+        DELETE FROM progist.bid_favorite_attachments
+        WHERE favorite_seq = #{favoriteSeq}
+    </delete>
+
+    <update id="updateGoogleDriveFileId">
+        UPDATE progist.bid_favorite_attachments
+        SET google_drive_file_id = #{googleDriveFileId}
+        WHERE attachment_seq = #{attachmentSeq}
+    </update>
+
+</mapper>
