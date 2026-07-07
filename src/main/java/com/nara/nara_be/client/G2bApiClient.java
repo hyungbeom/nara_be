@@ -752,14 +752,7 @@ public class G2bApiClient {
     }
 
     private String buildDetailContentFallback(G2bBidItem item) {
-        StringBuilder html = new StringBuilder();
-        html.append("<p>이 용역 공고의 본문 텍스트는 나라장터 Open API 응답에 포함되지 않습니다.</p>");
-        html.append("<p>공고문 전문은 아래 <strong>첨부파일</strong>(공고규격·제안요청정보·표준공고서 등) 또는 ");
-        html.append("<strong>나라장터에서 보기</strong> 링크에서 확인할 수 있습니다.</p>");
-        html.append("<ul>");
-        appendDetailFact(html, "담당자", item.getNtceInsttOfclNm());
-        html.append("</ul>");
-        return html.toString();
+        return "";
     }
 
     private String resolveRegionRestriction(JsonNode rawItem, String bidNtceNo, String bidNtceOrd) {
